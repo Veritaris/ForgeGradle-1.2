@@ -14,6 +14,7 @@ import org.gradle.api.DefaultTask;
 import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
+import org.gradle.internal.impldep.org.apache.commons.compress.java.util.jar.Pack200;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;

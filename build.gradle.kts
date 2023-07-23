@@ -76,6 +76,7 @@ dependencies {
     implementation("de.oceanlabs.mcp:mcinjector:3.2-SNAPSHOT")
     implementation("net.minecraftforge:Srg2Source:4.2.7")
 
+    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0")
     // pin jdt deps
     // locked means locked due to java 8
     implementation("org.eclipse.jdt:org.eclipse.jdt.core:3.26.0") // locked

@@ -203,6 +203,7 @@ public abstract class BasePlugin<K extends BaseExtension> implements Plugin<Proj
         logger.lifecycle("             http://modcoderpack.com             ");
         logger.lifecycle("         by: Searge, ProfMobius, Fesh0r,         ");
         logger.lifecycle("         R4wk, ZeuX, IngisKahn, bspkrs           ");
+        logger.lifecycle("         Kotlin support by: Veritaris            ");
         logger.lifecycle("#################################################");
         if (!hasMavenCentralBeforeJCenterInBuildScriptRepositories()) {
             logger.lifecycle("");

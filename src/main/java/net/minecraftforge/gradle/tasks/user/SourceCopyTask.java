@@ -38,8 +38,8 @@ public class SourceCopyTask extends DefaultTask {
     @SuppressWarnings("unchecked")
     @TaskAction
     public void doTask() throws IOException {
-        getLogger().debug("INPUTS >> " + source);
-        getLogger().debug("OUTPUTS >> " + getOutput());
+        getLogger().info("INPUTS >> " + source);
+        getLogger().info("OUTPUTS >> " + getOutput());
 
         // get the include/exclude patterns from the source (this is different than what's returned by getFilter)
         PatternSet patterns = new PatternSet();
@@ -67,12 +67,12 @@ public class SourceCopyTask extends DefaultTask {
             repl.put(Pattern.quote(e.getKey()), val.toString());
         }
 
-        getLogger().debug("REPLACE >> " + repl);
+        getLogger().info("REPLACE >> " + repl);
 
         // start traversing tree
         for (DirectoryTree dirTree : source.getSrcDirTrees()) {
             File dir = dirTree.getDir();
-            getLogger().debug("PARSING DIR >> " + dir);
+            getLogger().info("PARSING DIR >> " + dir);
 
             // handle nonexistant srcDirs
             if (!dir.exists() || !dir.isDirectory())
@@ -90,13 +90,13 @@ public class SourceCopyTask extends DefaultTask {
                 dest.createNewFile();
 
                 if (isIncluded(file)) {
-                    getLogger().debug("PARSING FILE IN >> " + file);
+                    getLogger().info("PARSING FILE IN >> " + file);
                     String text = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
 
                     for (Entry<String, String> entry : repl.entrySet())
                         text = text.replaceAll(entry.getKey(), entry.getValue());
 
-                    getLogger().debug("PARSING FILE OUT >> " + dest);
+                    getLogger().info("PARSING FILE OUT >> " + dest);
                     Files.write(dest.toPath(), text.getBytes(StandardCharsets.UTF_8));
                 } else {
                     Files.copy(file.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);

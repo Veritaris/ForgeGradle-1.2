@@ -32,6 +32,8 @@ import org.gradle.api.tasks.compile.GroovyCompile;
 import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.api.tasks.scala.ScalaCompile;
 import org.gradle.plugins.ide.idea.model.IdeaModel;
+import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet;
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile;
 import org.w3c.dom.DOMException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -51,6 +53,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Locale;
 
+import static com.sun.javafx.binding.Logging.getLogger;
 import static net.minecraftforge.gradle.common.Constants.*;
 import static net.minecraftforge.gradle.user.UserConstants.*;
 
@@ -83,6 +86,7 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
 
         hasScalaBefore = project.getPlugins().hasPlugin("scala");
         hasGroovyBefore = project.getPlugins().hasPlugin("groovy");
+        hasKotlinBefore = project.getPlugins().hasPlugin("kotlin");
 
         addGitIgnore(); //Morons -.-
 
@@ -129,6 +133,7 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
     private boolean hasAppliedJson = false;
     private boolean hasScalaBefore = false;
     private boolean hasGroovyBefore = false;
+    private boolean hasKotlinBefore = false;
 
     /**
      * may not include delayed tokens.
@@ -835,14 +840,11 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
             final JavaExec exec = makeTask("debugClient", JavaExec.class);
             project.afterEvaluate(project -> exec.workingDir(delayedFile("{RUN_DIR}")));
             exec.doFirst(new MakeDirExist(delayedFile("{RUN_DIR}")));
-            exec.doFirst(new Action<Task>() {
-                @Override
-                public void execute(Task o) {
-                    project.getLogger().error("");
-                    project.getLogger().error("THIS TASK WILL BE DEPRECATED SOON!");
-                    project.getLogger().error("Instead use the runClient task, with the --debug-jvm option");
-                    project.getLogger().error("");
-                }
+            exec.doFirst(o -> {
+                project.getLogger().error("");
+                project.getLogger().error("THIS TASK WILL BE DEPRECATED SOON!");
+                project.getLogger().error("Instead use the runClient task, with the --debug-jvm option");
+                project.getLogger().error("");
             });
             JavaExecSpecHelper.setMainClass(exec, GRADLE_START_CLIENT);
             exec.jvmArgs("-Xincgc", "-Xmx1024M", "-Xms1024M", "-Dfml.ignoreInvalidMinecraftCertificates=true");
@@ -862,14 +864,11 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
             final JavaExec exec = makeTask("debugServer", JavaExec.class);
             project.afterEvaluate(project -> exec.workingDir(delayedFile("{RUN_DIR}")));
             exec.doFirst(new MakeDirExist(delayedFile("{RUN_DIR}")));
-            exec.doFirst(new Action<Task>() {
-                @Override
-                public void execute(Task o) {
-                    project.getLogger().error("");
-                    project.getLogger().error("THIS TASK WILL BE DEPRECATED SOON!");
-                    project.getLogger().error("Instead use the runServer task, with the --debug-jvm option");
-                    project.getLogger().error("");
-                }
+            exec.doFirst(o -> {
+                project.getLogger().error("");
+                project.getLogger().error("THIS TASK WILL BE DEPRECATED SOON!");
+                project.getLogger().error("Instead use the runServer task, with the --debug-jvm option");
+                project.getLogger().error("");
             });
             JavaExecSpecHelper.setMainClass(exec, GRADLE_START_SERVER);
             exec.jvmArgs("-Xincgc", "-Dfml.ignoreInvalidMinecraftCertificates=true");
@@ -880,7 +879,7 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
             exec.setDebug(true);
 
             exec.setGroup("ForgeGradle");
-            exec.setDescription("Runs the Minecraft serevr in debug mode");
+            exec.setDescription("Runs the Minecraft server in debug mode");
 
             exec.dependsOn("makeStart");
             project.getTasks().getByPath("reobf").mustRunAfter(exec);
@@ -889,6 +888,7 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
 
     private void createSourceCopyTasks() {
         SourceSet main = JavaExtensionHelper.getSourceSet(project).getByName(SourceSet.MAIN_SOURCE_SET_NAME);
+        getLogger().info(String.format("All sources: %s", main.getAllSource().getAsPath()));
 
         // do the special source moving...
         SourceCopyTask task;
@@ -902,6 +902,7 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
             task.setOutput(dir);
 
             JavaCompile compile = (JavaCompile) project.getTasks().getByName(main.getCompileJavaTaskName());
+            task.getLogger().info(String.format("Found compileJava task, sources: %s", SOURCES_DIR + "/java"));
             compile.dependsOn("sourceMainJava");
             compile.setSource(dir);
         }
@@ -924,6 +925,7 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
             task.setOutput(dir);
 
             ScalaCompile compile = (ScalaCompile) project.getTasks().getByName(main.getCompileTaskName("scala"));
+            task.getLogger().info(String.format("Found compileScala task, sources: %s", SOURCES_DIR + "/scale"));
             compile.dependsOn("sourceMainScala");
             compile.setSource(dir);
         }
@@ -946,8 +948,33 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
             task.setOutput(dir);
 
             GroovyCompile compile = (GroovyCompile) project.getTasks().getByName(main.getCompileTaskName("groovy"));
+            task.getLogger().info(String.format("Found compileGroove task, sources: %s", SOURCES_DIR + "/groovy"));
             compile.dependsOn("sourceMainGroovy");
             compile.setSource(dir);
+        }
+
+        // kotlin!!!
+        if (project.getPlugins().hasPlugin("kotlin")) {
+            SourceDirectorySet set;
+            DslObject dslObject = new DslObject(main);
+            if (GradleVersionUtils.isBefore("7.1")) {
+                @SuppressWarnings("deprecation")
+                SourceDirectorySet set1 = ((KotlinSourceSet) dslObject.getConvention().getPlugins().get("kotlin")).getKotlin();
+                set = set1;
+            } else {
+                set = dslObject.getExtensions().getByType(SourceDirectorySet.class);
+            }
+
+            DelayedFile dir = delayedFile(SOURCES_DIR + "/kotlin");
+
+            task = makeTask("sourceMainKotlin", SourceCopyTask.class);
+            task.setSource(set);
+            task.setOutput(dir);
+
+            KotlinCompile compile = (KotlinCompile) project.getTasks().getByName(main.getCompileTaskName("kotlin"));
+            task.getLogger().info(String.format("Found compileKotlin task, sources: %s", set + "/kotlin"));
+            compile.dependsOn("sourceMainKotlin");
+            compile.source(dir);
         }
     }
 
@@ -980,13 +1007,17 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
             if (task != null) task.mustRunAfter("repackMinecraft");
             task = project.getTasks().findByName("compileScala");
             if (task != null) task.mustRunAfter("repackMinecraft");
+            task = project.getTasks().findByName("compileKotlin");
+            if (task != null) task.mustRunAfter("repackMinecraft");
         }
 
-        // ensure plugin application sequence.. groovy or scala or wtvr first, then the forge/fml/liteloader plugins
+        // ensure plugin application sequence.. groovy, scala, kotlin or wtvr first, then the forge/fml/liteloader plugins
         if (!hasScalaBefore && project.getPlugins().hasPlugin("scala"))
             throw new RuntimeException(delayedString("You have applied the 'scala' plugin after '{API_NAME}', you must apply it before.").call());
         if (!hasGroovyBefore && project.getPlugins().hasPlugin("groovy"))
             throw new RuntimeException(delayedString("You have applied the 'groovy' plugin after '{API_NAME}', you must apply it before.").call());
+        if (!hasKotlinBefore && project.getPlugins().hasPlugin("kotlin"))
+            throw new RuntimeException(delayedString("You have applied the 'kotlin' plugin after '{API_NAME}', you must apply it before.").call());
 
         project.getDependencies().add(CONFIG_USERDEV, delayedString(getUserDev()).call() + ":userdev");
 
@@ -1240,7 +1271,7 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
         if (!git.exists()) {
             git.getParentFile().mkdir();
             try {
-                Files.write(git.toPath(), "#Seriously guys, stop commiting this to your git repo!\r\n*".getBytes());
+                Files.write(git.toPath(), "#Seriously guys, stop committing this to your git repo!\r\n*".getBytes());
             } catch (IOException e) {}
         }
     }
